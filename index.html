@@ -29,6 +29,7 @@
   --dayf:brightness(.95);
   color-scheme:dark;
 }
+[hidden]{display:none!important}
 html,body{height:100%}
 body{
   background:var(--bg);color:var(--fg);font-family:var(--f-text);
@@ -570,6 +571,7 @@ $('form').addEventListener('submit', async e => {
       } catch(err) { $('msg').textContent = '现在连不上地点查询，请检查网络后再试'; return; }
     }
   }
+  $('msg').textContent = '';
   $('panel').hidden = true;
   loadWeather(); loadPhoto(false); setFx(document.body.dataset.wx || 'clear', 0);
 });
