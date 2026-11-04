@@ -8,6 +8,8 @@
 <meta name="theme-color" content="#0b0f14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="充电时钟">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@300;500&family=Noto+Sans+SC:wght@300;400;500&display=swap">
 <style>
@@ -399,13 +401,34 @@ async function setPlace(lat, lon, label){
   loadWeather();
   if (changed) loadPhoto(true);
 }
+let locErr = '';
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function locErrText(code){
+  if (code === 1) return IOS
+    ? '定位被拒绝了。请到 iPhone「设置 → 隐私与安全性 → 定位服务」，确认定位服务已打开，并把「Safari 网站」设为「使用 App 期间」，然后再试一次。也可以改用手动输入。'
+    : '定位被拒绝了。请在浏览器的网站设置里允许定位，或改用手动输入。';
+  if (code === 'timeout') return '定位超时，可能是手机定位没打开或信号不好。已先用上次的位置，也可以改用手动输入。';
+  return '暂时拿不到位置，已先用上次的位置。可以稍后再试，或改用手动输入。';
+}
 function locate(){
   if (S.mode !== 'auto' || !navigator.geolocation) return Promise.resolve(false);
   return new Promise(res => {
-    navigator.geolocation.getCurrentPosition(
-      async p => { await setPlace(+p.coords.latitude.toFixed(4), +p.coords.longitude.toFixed(4), ''); res(true); },
-      () => res(false),
-      {timeout:15000, maximumAge:30*60*1000, enableHighAccuracy:false});
+    let done = false;
+    const finish = (ok, err) => { if (done) return; done = true; clearTimeout(timer); locErr = ok ? '' : locErrText(err); res(ok); };
+    // iOS 在权限弹窗未处理时不会回调，所以自己加一个总超时
+    const timer = setTimeout(() => finish(false, 'timeout'), 20000);
+    try {
+      navigator.geolocation.getCurrentPosition(
+        p => {
+          if (done) return;
+          clearTimeout(timer);
+          const fin = setTimeout(() => finish(true), 8000);   // 位置已拿到，地名查询慢也不再卡住
+          setPlace(+p.coords.latitude.toFixed(4), +p.coords.longitude.toFixed(4), '')
+            .finally(() => { clearTimeout(fin); finish(true); });
+        },
+        e => finish(false, e && e.code),
+        {timeout:15000, maximumAge:30*60*1000, enableHighAccuracy:false});
+    } catch(e) { finish(false, 0); }
   });
 }
 
@@ -506,6 +529,7 @@ document.addEventListener('click', async e => {
   try { await screen.orientation.lock('landscape'); } catch(err) {}
   $('hint').style.opacity = 0;
 });
+if (IOS) $('hint').textContent = '轻点屏幕保持常亮 · 请关闭「竖排方向锁定」再横过来';
 setTimeout(() => $('hint').style.opacity = 0, 8000);
 
 /* ---------- settings panel ---------- */
@@ -517,7 +541,7 @@ $('gear').addEventListener('click', () => {
   $('city').value = S.mode === 'auto' ? '' : S.city;
   $('photoOn').checked = S.photoOn; $('fxOn').checked = S.fxOn;
   $('h24').checked = S.h24; $('nightAuto').checked = S.nightAuto;
-  $('msg').textContent = S.mode === 'auto' ? `当前位置：${S.place || S.city}` : '';
+  $('msg').textContent = S.mode === 'auto' ? (locErr || `当前位置：${S.place || S.city}`) : '';
   syncMode(); $('panel').hidden = false;
 });
 $('cancel').addEventListener('click', () => $('panel').hidden = true);
@@ -530,7 +554,7 @@ $('form').addEventListener('submit', async e => {
   if (mode === 'auto'){
     $('msg').textContent = '正在定位…';
     const ok = await locate();
-    if (!ok){ $('msg').textContent = '没拿到定位权限。请在浏览器里允许定位，或改用手动输入'; return; }
+    if (!ok){ $('msg').textContent = locErr; return; }
   } else {
     const name = $('city').value.trim();
     if (!name){ $('msg').textContent = '请输入一个地点'; return; }

@@ -1,5 +1,5 @@
 // 离线缓存：没网时时钟照样能打开；天气和照片有网时再更新
-const CACHE = 'nightclock-v1';
+const CACHE = 'nightclock-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
