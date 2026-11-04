@@ -1,5 +1,5 @@
 // 离线缓存：没网时时钟照样能打开；天气和照片有网时再更新
-const CACHE = 'nightclock-v2';
+const CACHE = 'nightclock-v3';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -21,7 +21,7 @@ self.addEventListener('fetch', e => {
   // 自己的页面文件：先用网络（拿到新版本），断网时用缓存
   if (url.origin === location.origin) {
     e.respondWith(
-      fetch(req).then(res => {
+      fetch(req, {cache: 'no-cache'}).then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(req, copy));
         return res;
