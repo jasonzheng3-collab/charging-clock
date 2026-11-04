@@ -1,0 +1,572 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+</head><body>
+<title>床头充电时钟</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@300;500&family=Noto+Sans+SC:wght@300;400;500&display=swap">
+<style>
+/* Layout: nightstand display over a local Sydney photo — huge clock left, quiet facts right, hourly strip along the foot. Single deliberate dark look. */
+:root{
+  --bg:#0b0f14;
+  --panel:#121821;
+  --line:rgba(232,236,239,.18);
+  --fg:#f1f4f6;
+  --dim:#a9b5c2;
+  --accent:#8fe0d2;
+  --warm:#f0b37e;
+  --scrim:5,8,12;
+  --f-digit:"Big Shoulders Display","Bahnschrift","DIN Condensed","Arial Narrow",sans-serif;
+  --f-text:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --wxf:saturate(1);
+  --dayf:brightness(.95);
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--fg);font-family:var(--f-text);
+  margin:0;overflow:hidden;user-select:none;-webkit-user-select:none;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  box-sizing:border-box;
+}
+/* ---- background photo + weather ---- */
+body[data-wx="partly"]{--wxf:saturate(.9)}
+body[data-wx="cloud"]{--wxf:saturate(.7) brightness(.88)}
+body[data-wx="rain"]{--wxf:saturate(.5) brightness(.72) contrast(1.05)}
+body[data-wx="storm"]{--wxf:saturate(.35) brightness(.55) contrast(1.1)}
+body[data-wx="fog"]{--wxf:blur(3px) saturate(.45) brightness(.85)}
+body[data-wx="snow"]{--wxf:saturate(.4) brightness(1.05)}
+body[data-day="0"]{--dayf:brightness(.55) saturate(.8)}
+#bg{position:fixed;inset:0;z-index:0;background:var(--bg);overflow:hidden}
+#bg .ph{position:absolute;inset:-8px;background-size:cover;background-position:center;opacity:0;transition:opacity 2.5s ease,filter 3s ease;filter:var(--wxf) var(--dayf)}
+#bg .ph.on{opacity:1}
+#bg::after{content:"";position:absolute;inset:0;
+  background:
+    linear-gradient(90deg,rgba(var(--scrim),.72) 0%,rgba(var(--scrim),.38) 55%,rgba(var(--scrim),.66) 100%),
+    linear-gradient(0deg,rgba(var(--scrim),.7) 0%,transparent 38%);}
+#fx{position:fixed;inset:0;z-index:1;pointer-events:none;width:100%;height:100%}
+body.flash #bg::after{background:rgba(220,230,255,.18)}
+#stage{
+  position:relative;z-index:2;
+  height:100%;display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,15rem);
+  grid-template-rows:minmax(0,1fr) auto;
+  gap:1.2vh 4vw;padding-block:3vh;box-sizing:border-box;
+  text-shadow:0 1px 14px rgba(0,0,0,.55);
+  transition:opacity 2s, filter 2s, transform 1.5s;
+}
+/* ---- clock ---- */
+#left{display:flex;flex-direction:column;justify-content:center;min-width:0}
+#time{
+  font-family:var(--f-digit);font-weight:300;line-height:.86;
+  font-size:min(26vw,62vh);letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums;display:flex;align-items:flex-start;white-space:nowrap;
+}
+#time .colon{opacity:.4;margin:0 .02em;transform:translateY(-.04em)}
+#sec{font-size:.33em;font-weight:500;color:var(--accent);margin-left:.12em;margin-top:.1em;font-variant-numeric:tabular-nums;width:1.2em}
+#ampm{font-size:.16em;color:var(--dim);margin-left:.2em;margin-top:.25em;font-family:var(--f-text)}
+#date{display:flex;flex-wrap:wrap;align-items:baseline;gap:.3em 1.1em;margin-top:2.6vh;font-size:min(4.2vw,7.5vh)}
+#date .main{font-weight:400}
+#date .lunar{color:var(--dim);font-size:.72em;font-weight:300}
+/* ---- side ---- */
+#side{display:flex;flex-direction:column;justify-content:center;gap:2.2vh;min-width:0;font-size:min(2.3vw,4.4vh)}
+.wx{display:grid;grid-template-columns:auto 1fr;gap:0 .7em;align-items:center}
+.wx svg{width:3.4em;height:3.4em;color:var(--fg);filter:drop-shadow(0 1px 8px rgba(0,0,0,.5))}
+.wx .t{font-family:var(--f-digit);font-weight:300;font-size:3.6em;line-height:.9;font-variant-numeric:tabular-nums}
+.wx .t small{font-size:.4em;color:var(--dim);vertical-align:top;margin-left:.08em}
+.wx .c{grid-column:1/-1;margin-top:.5em}
+.wx .c span{color:var(--dim)}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:.45em 1em;border-top:1px solid var(--line);padding-top:1.6vh;margin:0}
+.facts dt{color:var(--dim);font-size:.85em;letter-spacing:.04em}
+.facts dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+#batt{display:flex;align-items:center;gap:.6em;border-top:1px solid var(--line);padding-top:1.6vh}
+#batt .cell{flex:1;height:.45em;border-radius:.3em;background:var(--line);overflow:hidden}
+#batt .fill{height:100%;background:var(--dim);width:0;transition:width 1s}
+#batt.charging .fill{background:var(--accent)}
+#batt .lbl{font-variant-numeric:tabular-nums;white-space:nowrap}
+#batt.charging .lbl{color:var(--accent)}
+#batt svg{width:.9em;height:.9em;display:none;color:var(--accent)}
+#batt.charging svg{display:block}
+/* ---- hourly strip ---- */
+#hours{grid-column:1/-1;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));border-top:1px solid var(--line);padding-top:1.4vh;font-size:min(1.9vw,3.6vh)}
+#hours div{display:flex;flex-direction:column;align-items:center;gap:.25em;color:var(--dim)}
+#hours b{font-weight:400;color:var(--fg);font-variant-numeric:tabular-nums}
+#hours svg{width:1.4em;height:1.4em;color:var(--fg)}
+#hours .rain{color:var(--accent);font-size:.85em;min-height:1.2em}
+.note{color:var(--dim);font-size:.85em;line-height:1.5}
+/* ---- credit ---- */
+#credit{position:fixed;z-index:3;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 4px);
+  font-size:10px;color:var(--dim);opacity:.6;max-width:60vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+/* ---- controls ---- */
+#gear{
+  position:fixed;z-index:4;right:calc(max(16px,env(safe-area-inset-right,0px)) - 6px);top:calc(env(safe-area-inset-top,0px) + 8px);
+  background:none;border:0;color:var(--fg);opacity:.35;padding:8px;cursor:pointer;border-radius:50%;
+}
+#gear:focus-visible,#panel button:focus-visible,#panel input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#gear svg{width:22px;height:22px;display:block}
+#panel{position:fixed;inset:0;background:rgba(var(--scrim),.82);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px;overflow:auto}
+#panel .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;width:min(440px,100%);display:grid;gap:12px;font-size:15px;max-height:100%;overflow:auto;box-sizing:border-box}
+#panel h2{margin:0;font-size:17px;font-weight:500}
+#panel fieldset{border:0;padding:0;margin:0;display:grid;gap:8px}
+#panel legend{color:var(--dim);font-size:13px;margin-bottom:6px;padding:0}
+#panel .opt{display:flex;gap:8px;align-items:center}
+#panel input[type=text]{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:10px 12px;font:inherit}
+#panel input[type=text]:disabled{opacity:.4}
+#panel .row{display:flex;gap:10px;align-items:center;justify-content:space-between}
+#panel .btns{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap}
+#panel .btns div{display:flex;gap:10px}
+#panel button{font:inherit;border-radius:8px;padding:9px 16px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+#panel button.primary{background:var(--accent);color:#06221d;border-color:var(--accent)}
+#msg{color:var(--warm);font-size:13px;min-height:1em}
+#hint{position:fixed;z-index:3;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);text-align:center;color:var(--dim);font-size:13px;pointer-events:none;transition:opacity 1s;text-shadow:0 1px 8px #000}
+/* ---- night mode ---- */
+body.night #stage{opacity:.55;filter:sepia(.6) saturate(1.4) hue-rotate(-12deg)}
+body.night #bg .ph{filter:var(--wxf) brightness(.35) saturate(.6)}
+body.night #sec{color:var(--warm)}
+/* ---- portrait fallback ---- */
+@media (orientation:portrait){
+  #stage{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;align-content:center;gap:4vh}
+  #time{font-size:22vw}
+  #date{font-size:5vw}
+  #side{font-size:3.6vw}
+  #hours{font-size:3vw;grid-template-columns:repeat(4,minmax(0,1fr));row-gap:2vh}
+}
+@media (prefers-reduced-motion:reduce){#stage,#bg .ph{transition:none}}
+</style>
+
+<div id="bg"><div class="ph" id="ph0"></div><div class="ph" id="ph1"></div></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<div id="stage">
+  <section id="left">
+    <div id="time"><span id="hh">--</span><span class="colon">:</span><span id="mm">--</span><span id="sec">--</span><span id="ampm"></span></div>
+    <div id="date"><span class="main" id="dmain">—</span><span class="lunar" id="dlunar"></span></div>
+  </section>
+  <aside id="side">
+    <div class="wx" id="wx"><div class="note">正在获取天气…</div></div>
+    <dl class="facts">
+      <dt>日出</dt><dd id="sunrise">—</dd>
+      <dt>日落</dt><dd id="sunset">—</dd>
+      <dt>紫外线</dt><dd id="uv">—</dd>
+      <dt>北京时间</dt><dd id="bj">—</dd>
+    </dl>
+    <div id="batt" hidden>
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+      <div class="cell"><div class="fill" id="bfill"></div></div>
+      <span class="lbl" id="blbl"></span>
+    </div>
+  </aside>
+  <section id="hours" aria-label="未来几小时"></section>
+</div>
+
+<div id="credit"></div>
+
+<button id="gear" aria-label="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+
+<div id="panel" hidden>
+  <form class="box" id="form">
+    <h2>设置</h2>
+    <fieldset>
+      <legend>位置（天气和背景照片都跟着它变）</legend>
+      <label class="opt"><input type="radio" name="mode" id="modeAuto" value="auto"> 自动定位当前 suburb</label>
+      <label class="opt"><input type="radio" name="mode" id="modeManual" value="manual"> 手动输入</label>
+      <input type="text" id="city" autocomplete="off" placeholder="例如 Beaumont Hills / Box Hill NSW / 福州" aria-label="手动输入地点">
+    </fieldset>
+    <div class="row"><span>背景照片</span><input type="checkbox" id="photoOn"></div>
+    <div class="row"><span>天气动画（雨、雪、闪电）</span><input type="checkbox" id="fxOn"></div>
+    <div class="row"><span>24 小时制</span><input type="checkbox" id="h24"></div>
+    <div class="row"><span>夜间自动调暗（22:00–6:30）</span><input type="checkbox" id="nightAuto"></div>
+    <div id="msg"></div>
+    <div class="btns">
+      <button type="button" id="shuffle">换一张背景</button>
+      <div><button type="button" id="cancel">取消</button><button type="submit" class="primary">保存</button></div>
+    </div>
+  </form>
+</div>
+
+<div id="hint">轻点屏幕进入全屏并保持常亮</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const WEEK = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+const pad = n => String(n).padStart(2,'0');
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+
+/* ---------- settings ---------- */
+const DEF = {mode:'auto', city:'Sydney', place:'Sydney', lat:-33.8688, lon:151.2093, h24:true, nightAuto:true, photoOn:true, fxOn:true};
+let S = {...DEF, ...store.get('nightclock', {})};
+const saveS = () => store.set('nightclock', S);
+
+/* ---------- lunar ---------- */
+const CN = '一二三四五六七八九十';
+function cnDay(n){
+  if (n <= 10) return '初' + CN[n-1];
+  if (n < 20) return '十' + CN[n-11];
+  if (n === 20) return '二十';
+  if (n < 30) return '廿' + CN[n-21];
+  return '三十';
+}
+let lunarCache = {key:'', text:''};
+function lunar(d){
+  const key = d.toDateString();
+  if (lunarCache.key === key) return lunarCache.text;
+  let text = '';
+  try {
+    const parts = new Intl.DateTimeFormat('zh-CN-u-ca-chinese',{year:'numeric',month:'long',day:'numeric'}).formatToParts(d);
+    let m='', day='', yr='';
+    for (const p of parts){
+      if (p.type==='month') m = p.value;
+      else if (p.type==='day') day = p.value;
+      else if (p.type==='yearName') yr = p.value;
+    }
+    const n = parseInt(day,10);
+    if (!isNaN(n)) day = cnDay(n);
+    if (m && day) text = '农历' + m + day + (yr ? ' · ' + yr + '年' : '');
+  } catch(e) {}
+  lunarCache = {key, text};
+  return text;
+}
+
+/* ---------- clock ---------- */
+const bjFmt = new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',hour12:false,weekday:'short'});
+function tick(){
+  const d = new Date();
+  let h = d.getHours();
+  if (!S.h24){ $('ampm').textContent = h < 12 ? '上午' : '下午'; h = h % 12 || 12; }
+  else $('ampm').textContent = '';
+  $('hh').textContent = S.h24 ? pad(h) : String(h);
+  $('mm').textContent = pad(d.getMinutes());
+  $('sec').textContent = pad(d.getSeconds());
+  $('dmain').textContent = `${d.getMonth()+1}月${d.getDate()}日 ${WEEK[d.getDay()]}`;
+  $('dlunar').textContent = lunar(d);
+  $('bj').textContent = bjFmt.format(d);
+  const mins = d.getHours()*60 + d.getMinutes();
+  document.body.classList.toggle('night', S.nightAuto && (mins >= 22*60 || mins < 6*60+30));
+  setTimeout(tick, 1000 - d.getMilliseconds() + 5);
+}
+
+/* burn-in protection: drift a few px each minute */
+setInterval(() => {
+  const x = Math.round(Math.random()*8-4), y = Math.round(Math.random()*6-3);
+  $('stage').style.transform = `translate(${x}px,${y}px)`;
+}, 60000);
+
+/* ---------- weather ---------- */
+const ICON = {
+  sun:'<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/>',
+  moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  partly:'<path d="M8 3.5v1.4M3.5 8h1.4M4.8 4.8l1 1M11.2 4.8l-1 1"/><path d="M5.6 10.4A3 3 0 1 1 10.7 7"/><path d="M8 19h9.5a3.5 3.5 0 0 0 .4-7 5 5 0 0 0-9.6 1.2A2.9 2.9 0 0 0 8 19z"/>',
+  cloud:'<path d="M6.5 18.5h11a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.6 1.4A3.3 3.3 0 0 0 6.5 18.5z"/>',
+  rain:'<path d="M6.5 14.5h11a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.6 1.4A3.3 3.3 0 0 0 6.5 14.5z"/><path d="M8 17.5l-1 3M12 17.5l-1 3M16 17.5l-1 3"/>',
+  storm:'<path d="M6.5 14h11a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.6 1.4A3.3 3.3 0 0 0 6.5 14z"/><path d="M12.5 14.5l-2 3.5h3l-2 3.5"/>',
+  snow:'<path d="M6.5 14h11a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.6 1.4A3.3 3.3 0 0 0 6.5 14z"/><path d="M8 18h.01M12 20h.01M16 18h.01M10 21.5h.01M14 21.5h.01" stroke-width="2.4"/>',
+  fog:'<path d="M4 9h16M3 13h18M5 17h14"/>'
+};
+function wmo(code, day=1){
+  if (code===0) return [day?'晴':'晴朗', day?'sun':'moon'];
+  if (code===1) return ['大致晴朗', day?'sun':'moon'];
+  if (code===2) return ['局部多云','partly'];
+  if (code===3) return ['阴','cloud'];
+  if (code===45||code===48) return ['雾','fog'];
+  if (code>=51&&code<=57) return ['毛毛雨','rain'];
+  if (code===61) return ['小雨','rain'];
+  if (code===63) return ['中雨','rain'];
+  if (code>=65&&code<=67) return ['大雨','rain'];
+  if (code>=71&&code<=77) return ['雪','snow'];
+  if (code>=80&&code<=82) return ['阵雨','rain'];
+  if (code===85||code===86) return ['阵雪','snow'];
+  if (code>=95) return ['雷雨','storm'];
+  return ['—','cloud'];
+}
+const svg = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
+const hm = iso => iso ? iso.slice(11,16) : '—';
+function uvLabel(u){ if (u==null) return '—'; const r=Math.round(u); const l = r<3?'低':r<6?'中':r<8?'高':r<11?'很高':'极高'; return `${r} · ${l}`; }
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let lastDay = null;
+async function loadWeather(){
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${S.lat}&longitude=${S.lon}`
+    + `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day`
+    + `&hourly=temperature_2m,precipitation_probability,weather_code,is_day`
+    + `&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max`
+    + `&timezone=auto&forecast_days=2`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(r.status);
+    const w = await r.json();
+    const c = w.current, dly = w.daily;
+    const [txt, ic] = wmo(c.weather_code, c.is_day);
+    $('wx').innerHTML =
+      `${svg(ic)}<div class="t">${Math.round(c.temperature_2m)}<small>°C</small></div>`
+      + `<div class="c">${esc(S.city)} · ${txt}<br><span>最高 ${Math.round(dly.temperature_2m_max[0])}° 最低 ${Math.round(dly.temperature_2m_min[0])}° · 体感 ${Math.round(c.apparent_temperature)}°</span><br><span>湿度 ${c.relative_humidity_2m}% · 降雨 ${dly.precipitation_probability_max[0] ?? 0}%</span></div>`;
+    $('sunrise').textContent = hm(dly.sunrise[0]);
+    $('sunset').textContent = hm(dly.sunset[0]);
+    $('uv').textContent = uvLabel(dly.uv_index_max[0]);
+    const nowKey = c.time.slice(0,13);
+    let i = w.hourly.time.findIndex(t => t.slice(0,13) === nowKey);
+    if (i < 0) i = 0;
+    let out = '';
+    for (let k = 1; k <= 8 && i+k < w.hourly.time.length; k++){
+      const j = i+k, p = w.hourly.precipitation_probability[j];
+      const [, hic] = wmo(w.hourly.weather_code[j], w.hourly.is_day[j]);
+      out += `<div><span>${w.hourly.time[j].slice(11,13)}时</span>${svg(hic)}<b>${Math.round(w.hourly.temperature_2m[j])}°</b><span class="rain">${p>=20?p+'%':''}</span></div>`;
+    }
+    $('hours').innerHTML = out;
+    // drive the background mood
+    const kind = (ic === 'sun' || ic === 'moon') ? 'clear' : ic;
+    document.body.dataset.wx = kind;
+    document.body.dataset.day = c.is_day ? '1' : '0';
+    setFx(kind, c.weather_code);
+    if (lastDay !== null && lastDay !== c.is_day) loadPhoto(true);   // day/night switch → new photo
+    lastDay = c.is_day;
+  } catch(e) {
+    $('wx').innerHTML = `<div class="note">${esc(S.city)} · 天气暂时获取不到<br>请在手机浏览器中打开本页，网络恢复后会自动刷新</div>`;
+  }
+}
+
+/* ---------- weather effects (canvas) ---------- */
+const cv = $('fx'), ctx = cv.getContext('2d');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let fx = {kind:'none', n:0}, drops = [], raf = 0, nextFlash = 0;
+function sizeCv(){ const r = devicePixelRatio || 1; cv.width = innerWidth*r; cv.height = innerHeight*r; ctx.setTransform(r,0,0,r,0,0); }
+addEventListener('resize', sizeCv); sizeCv();
+function setFx(kind, code){
+  let n = 0, k = 'none';
+  if (kind === 'rain' || kind === 'storm'){ k = 'rain'; n = (code===61||code===51||code===53||code===80) ? 70 : (code>=65||code===82||kind==='storm') ? 220 : 130; }
+  if (kind === 'snow'){ k = 'snow'; n = 90; }
+  if (!S.fxOn || reduced) { k = 'none'; n = 0; }
+  fx = {kind:k, n, storm: kind === 'storm' && S.fxOn && !reduced};
+  drops = Array.from({length:n}, () => newDrop(true));
+  cancelAnimationFrame(raf);
+  ctx.clearRect(0,0,innerWidth,innerHeight);
+  if (n || fx.storm) raf = requestAnimationFrame(loop);
+}
+function newDrop(anyY){
+  return {x: Math.random()*innerWidth*1.2, y: anyY ? Math.random()*innerHeight : -20,
+          v: fx.kind==='snow' ? 0.6+Math.random()*1.2 : 9+Math.random()*7,
+          l: 10+Math.random()*14, r: 1+Math.random()*2.2, s: Math.random()*6.28};
+}
+function loop(t){
+  if (document.visibilityState !== 'visible'){ raf = requestAnimationFrame(loop); return; }
+  ctx.clearRect(0,0,innerWidth,innerHeight);
+  if (fx.kind === 'rain'){
+    ctx.strokeStyle = 'rgba(200,215,235,.32)'; ctx.lineWidth = 1; ctx.beginPath();
+    for (const d of drops){
+      ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.l*.25, d.y + d.l);
+      d.y += d.v; d.x -= d.v*.25;
+      if (d.y > innerHeight) Object.assign(d, newDrop(false));
+    }
+    ctx.stroke();
+  } else if (fx.kind === 'snow'){
+    ctx.fillStyle = 'rgba(245,248,255,.75)';
+    for (const d of drops){
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.28); ctx.fill();
+      d.y += d.v; d.s += .02; d.x += Math.sin(d.s)*.6;
+      if (d.y > innerHeight) Object.assign(d, newDrop(false));
+    }
+  }
+  if (fx.storm && t > nextFlash){
+    nextFlash = t + 6000 + Math.random()*14000;
+    document.body.classList.add('flash');
+    setTimeout(() => document.body.classList.remove('flash'), 90);
+    setTimeout(() => { document.body.classList.add('flash'); setTimeout(() => document.body.classList.remove('flash'), 60); }, 200);
+  }
+  raf = requestAnimationFrame(loop);
+}
+
+/* ---------- location (suburb) ---------- */
+async function reverse(lat, lon){
+  const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+  const g = await r.json();
+  return {suburb: g.locality || g.city || '', city: g.city || g.principalSubdivision || ''};
+}
+async function setPlace(lat, lon, label){
+  let place = label;
+  try { const g = await reverse(lat, lon); place = g.suburb || label; if (!label) label = g.suburb || g.city; } catch(e) {}
+  const changed = place !== S.place;
+  Object.assign(S, {lat, lon, city: label || place || S.city, place: place || S.place});
+  saveS();
+  loadWeather();
+  if (changed) loadPhoto(true);
+}
+function locate(){
+  if (S.mode !== 'auto' || !navigator.geolocation) return Promise.resolve(false);
+  return new Promise(res => {
+    navigator.geolocation.getCurrentPosition(
+      async p => { await setPlace(+p.coords.latitude.toFixed(4), +p.coords.longitude.toFixed(4), ''); res(true); },
+      () => res(false),
+      {timeout:15000, maximumAge:30*60*1000, enableHighAccuracy:false});
+  });
+}
+
+/* ---------- background photos (Wikimedia Commons) ---------- */
+let photoLayer = 0;
+const BAD = /map|logo|plan|diagram|chart|flag|coat of arms|sign|seal|locator|svg|census|graph|ticket|timetable/i;
+async function searchCommons(q){
+  const url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*'
+    + '&generator=search&gsrnamespace=6&gsrlimit=40&gsrsearch=' + encodeURIComponent(q + ' filetype:bitmap')
+    + '&prop=imageinfo&iiprop=url|size|mime|extmetadata&iiurlwidth=1920&iiextmetadatafilter=Artist|LicenseShortName';
+  const r = await fetch(url);
+  const j = await r.json();
+  const pages = Object.values((j.query && j.query.pages) || {});
+  return pages.filter(p => {
+    const ii = p.imageinfo && p.imageinfo[0];
+    return ii && ii.mime === 'image/jpeg' && ii.width >= 1600 && ii.width / ii.height >= 1.3 && !BAD.test(p.title);
+  }).map(p => {
+    const ii = p.imageinfo[0], m = ii.extmetadata || {};
+    const div = document.createElement('div'); div.innerHTML = (m.Artist && m.Artist.value) || '';
+    const who = (div.textContent || '').trim().slice(0, 60);
+    const lic = (m.LicenseShortName && m.LicenseShortName.value) || '';
+    return {url: ii.thumburl || ii.url, credit: [who, lic, 'Wikimedia Commons'].filter(Boolean).join(' · '), title: p.title};
+  });
+}
+async function findPhotos(){
+  const place = S.place || 'Sydney';
+  const night = document.body.dataset.day === '0';
+  const tries = [];
+  if (night) tries.push(`"${place}" night`);
+  tries.push(`"${place}" New South Wales`, `"${place}"`);
+  if (night) tries.push('Sydney night skyline');
+  tries.push('Sydney Harbour', 'Sydney skyline');
+  for (const q of tries){
+    try { const list = await searchCommons(q); if (list.length) return {list, q}; } catch(e) { return null; }
+  }
+  return null;
+}
+async function loadPhoto(force){
+  if (!S.photoOn){ $('ph0').classList.remove('on'); $('ph1').classList.remove('on'); $('credit').textContent=''; return; }
+  const key = (S.place || 'Sydney') + '|' + (document.body.dataset.day === '0' ? 'n' : 'd');
+  const cache = store.get('nightclock-photos', {});
+  let entry = cache[key];
+  if (force || !entry || Date.now() - entry.t > 6*3600*1000){
+    const found = await findPhotos();
+    if (!found) return;
+    entry = {t: Date.now(), list: found.list.slice(0, 25), i: -1};
+  }
+  entry.i = (entry.i + 1) % entry.list.length;
+  cache[key] = entry; store.set('nightclock-photos', cache);
+  const pick = entry.list[entry.i];
+  const img = new Image();
+  img.onload = () => {
+    const next = $('ph' + (1 - photoLayer)), cur = $('ph' + photoLayer);
+    next.style.backgroundImage = `url("${pick.url.replace(/"/g,'%22')}")`;
+    next.classList.add('on'); cur.classList.remove('on');
+    photoLayer = 1 - photoLayer;
+    $('credit').textContent = '照片：' + pick.credit;
+  };
+  img.onerror = () => { if (entry.list.length > 1) { entry.list.splice(entry.i,1); entry.i--; store.set('nightclock-photos', cache); loadPhoto(false); } };
+  img.src = pick.url;
+}
+
+/* ---------- battery ---------- */
+async function initBattery(){
+  if (!navigator.getBattery) return;
+  try {
+    const b = await navigator.getBattery();
+    const draw = () => {
+      $('batt').hidden = false;
+      const pct = Math.round(b.level*100);
+      $('bfill').style.width = pct + '%';
+      $('batt').classList.toggle('charging', b.charging);
+      let lbl = pct + '%';
+      if (b.charging){
+        lbl = (pct >= 100 ? '已充满 ' : '充电中 ') + pct + '%';
+        if (b.chargingTime && isFinite(b.chargingTime) && pct < 100){
+          const m = Math.round(b.chargingTime/60);
+          lbl += ` · ${m>=60? Math.floor(m/60)+'小时'+(m%60)+'分' : m+'分钟'}充满`;
+        }
+      }
+      $('blbl').textContent = lbl;
+    };
+    ['levelchange','chargingchange','chargingtimechange'].forEach(ev => b.addEventListener(ev, draw));
+    draw();
+  } catch(e) {}
+}
+
+/* ---------- keep screen on / fullscreen ---------- */
+let lock = null;
+async function wake(){
+  try { if ('wakeLock' in navigator && !lock){ lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => lock = null); } } catch(e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
+document.addEventListener('click', async e => {
+  if (e.target.closest('#gear,#panel')) return;
+  wake();
+  try { if (!document.fullscreenElement && document.documentElement.requestFullscreen){ await document.documentElement.requestFullscreen(); } } catch(err) {}
+  try { await screen.orientation.lock('landscape'); } catch(err) {}
+  $('hint').style.opacity = 0;
+});
+setTimeout(() => $('hint').style.opacity = 0, 8000);
+
+/* ---------- settings panel ---------- */
+const syncMode = () => { $('city').disabled = $('modeAuto').checked; };
+$('modeAuto').addEventListener('change', syncMode);
+$('modeManual').addEventListener('change', syncMode);
+$('gear').addEventListener('click', () => {
+  $('modeAuto').checked = S.mode === 'auto'; $('modeManual').checked = S.mode !== 'auto';
+  $('city').value = S.mode === 'auto' ? '' : S.city;
+  $('photoOn').checked = S.photoOn; $('fxOn').checked = S.fxOn;
+  $('h24').checked = S.h24; $('nightAuto').checked = S.nightAuto;
+  $('msg').textContent = S.mode === 'auto' ? `当前位置：${S.place || S.city}` : '';
+  syncMode(); $('panel').hidden = false;
+});
+$('cancel').addEventListener('click', () => $('panel').hidden = true);
+$('shuffle').addEventListener('click', () => { loadPhoto(false); $('msg').textContent = '已换一张'; });
+$('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  Object.assign(S, {h24:$('h24').checked, nightAuto:$('nightAuto').checked, photoOn:$('photoOn').checked, fxOn:$('fxOn').checked});
+  const mode = $('modeAuto').checked ? 'auto' : 'manual';
+  S.mode = mode; saveS();
+  if (mode === 'auto'){
+    $('msg').textContent = '正在定位…';
+    const ok = await locate();
+    if (!ok){ $('msg').textContent = '没拿到定位权限。请在浏览器里允许定位，或改用手动输入'; return; }
+  } else {
+    const name = $('city').value.trim();
+    if (!name){ $('msg').textContent = '请输入一个地点'; return; }
+    if (name !== S.city){
+      $('msg').textContent = '正在查找…';
+      try {
+        const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name.replace(/\s+NSW$/i,''))}&count=5&language=zh`);
+        const g = await r.json();
+        const res = (g.results || []);
+        const p = res.find(x => x.country_code === 'AU' && /NSW|New South Wales|新南威尔士/.test(x.admin1 || '')) || res[0];
+        if (!p){ $('msg').textContent = '没找到这个地方，换个写法试试（例如 Beaumont Hills）'; return; }
+        await setPlace(p.latitude, p.longitude, p.name);
+      } catch(err) { $('msg').textContent = '现在连不上地点查询，请检查网络后再试'; return; }
+    }
+  }
+  $('panel').hidden = true;
+  loadWeather(); loadPhoto(false); setFx(document.body.dataset.wx || 'clear', 0);
+});
+
+/* ---------- start ---------- */
+tick();
+initBattery();
+wake();
+(async () => {
+  await loadWeather();          // sets day/night before choosing a photo
+  loadPhoto(false);
+  locate();                     // in auto mode, refine to the current suburb
+})();
+setInterval(loadWeather, 15*60*1000);
+setInterval(() => loadPhoto(false), 60*60*1000);   // a new local photo every hour
+setInterval(locate, 30*60*1000);                    // re-check suburb every 30 min
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body></html>
